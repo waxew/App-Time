@@ -61,3 +61,26 @@ jobs:
           path: App-Time-v1.1.0-release-unsigned.apk
           if-no-files-found: error
           retention-days: 30
+
+      # از همان Commit یک ZIP تمیز از سورس ساخته می‌شود.
+      # پوشه‌های Build، Cache، Git و اطلاعات امضای خصوصی عمداً داخل این فایل قرار نمی‌گیرند.
+      - name: Package public source
+        run: |
+          zip -r App-Time-v1.1.0-source-public.zip . \
+            -x '.git/*' \
+            -x '.gradle/*' \
+            -x 'build/*' \
+            -x 'app/build/*' \
+            -x 'signing/*' \
+            -x '*.jks' \
+            -x '*.keystore' \
+            -x 'App-Time-v1.1.0-release-unsigned.apk'
+
+      # ZIP سورس عمومی به‌عنوان Artifact جداگانه ذخیره می‌شود.
+      - name: Upload public source
+        uses: actions/upload-artifact@v4
+        with:
+          name: App-Time-v1.1.0-source-public
+          path: App-Time-v1.1.0-source-public.zip
+          if-no-files-found: error
+          retention-days: 30
