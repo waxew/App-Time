@@ -1,7 +1,11 @@
 {
-  "versionCode": 1,
-  "versionName": "1.0.0",
+  "_comment_versionCode": "این عدد باید در هر انتشار افزایش پیدا کند تا اندروید نسخه جدید را تشخیص دهد.",
+  "versionCode": 2,
+  "_comment_versionName": "نام قابل نمایش نسخه فعلی برنامه.",
+  "versionName": "1.1.0",
+  "_comment_minimumSupportedVersionCode": "کمترین نسخه‌ای که فعلاً پشتیبانی می‌شود.",
   "minimumSupportedVersionCode": 1,
+  "_comment_downloadUrl": "در نسخه بعد به لینک Release عمومی نهایی متصل می‌شود.",
   "downloadUrl": "https://github.com/waxew/App-Time/actions",
-  "notes": "نسخه اولیه اپلیکیشن تایم"
+  "notes": "اصلاح Back Stack، منوی همبرگری، صفحه درباره نرم افزار، کامنت‌گذاری و مسیر Release پایدار"
 }

@@ -1,13 +1,20 @@
+# فایل‌های تنظیمات IDE نباید وارد GitHub شوند.
 *.iml
 .gradle/
 /local.properties
 /.idea/
 .DS_Store
+
+# خروجی‌های Build محلی دوباره قابل تولید هستند و Commit نمی‌شوند.
 /build/
-/captures/
+app/build/
+captures/
 .externalNativeBuild/
 .cxx/
-app/build/
+
+# کلیدهای امضا و فایل رمز آن‌ها اطلاعات خصوصی انتشار هستند.
 *.jks
 *.keystore
+signing/
 signing.properties
+keystore.properties

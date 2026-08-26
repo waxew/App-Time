@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- فایل String Resource برای متن‌های ثابت قابل ترجمه برنامه است. -->
 <resources>
+    <!-- نامی که در Launcher و عنوان سیستمی برنامه نمایش داده می‌شود. -->
     <string name="app_name">تایم</string>
 </resources>

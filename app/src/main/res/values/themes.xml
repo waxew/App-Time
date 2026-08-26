@@ -1,10 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Theme سطح Window برنامه؛ Theme داخلی Compose جداگانه داخل MainActivity تعریف شده است. -->
 <resources>
+    <!-- NoActionBar چون TopAppBar برنامه توسط Jetpack Compose ساخته می‌شود. -->
     <style name="Theme.AppTime" parent="android:style/Theme.Material.NoActionBar">
+        <!-- فونت عمومی سیستم برای متن فارسی و لاتین استفاده می‌شود. -->
         <item name="android:fontFamily">sans</item>
+        <!-- آیکون‌های Status Bar برای پس‌زمینه تیره روشن باقی می‌مانند. -->
         <item name="android:windowLightStatusBar">false</item>
+        <!-- رنگ Status Bar با پس‌زمینه اصلی UI هماهنگ است. -->
         <item name="android:statusBarColor">#111318</item>
+        <!-- رنگ Navigation Bar پایین دستگاه نیز با UI هماهنگ می‌شود. -->
         <item name="android:navigationBarColor">#111318</item>
+        <!-- ActionMode روی محتوای برنامه Overlay می‌شود. -->
         <item name="android:windowActionModeOverlay">true</item>
     </style>
 </resources>

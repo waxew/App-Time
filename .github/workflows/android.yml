@@ -1,47 +1,63 @@
-name: Android APK
+# نام Workflow در تب Actions گیت‌هاب.
+name: Android Release Check
 
+# این Workflow بعد از هر Push روی main و همچنین اجرای دستی فعال می‌شود.
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
 
+# Job اصلی Compile برنامه.
 jobs:
   build:
+    # ماشین Ubuntu گیت‌هاب برای Build اندروید استفاده می‌شود.
     runs-on: ubuntu-latest
+
+    # Workflow فقط نیاز به خواندن سورس دارد و مجوز نوشتن Repository نمی‌گیرد.
     permissions:
       contents: read
 
     steps:
-      - name: Checkout
+      # سورس همان Commit را داخل Runner دریافت می‌کند.
+      - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Java 17
+      # Android Gradle Plugin پروژه با Java 17 اجرا می‌شود.
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Android SDK
+      # Android SDK روی Runner آماده می‌شود.
+      - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      # Platform و Build Tools مورد نیاز compileSdk=35 نصب می‌شوند.
       - name: Install Android 35
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Gradle 8.7
+      # Gradle 8.7 بدون نیاز به Wrapper قدیمی در Runner آماده می‌شود.
+      - name: Setup Gradle 8.7
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
 
-      - name: Build debug APK
-        run: gradle :app:assembleDebug --stacktrace
+      # چون کلید خصوصی عمداً در GitHub نیست، این مرحله Release بدون امضا را Compile می‌کند.
+      # هدف این مرحله اثبات سلامت Compile سورس Production است.
+      - name: Build release APK
+        run: gradle :app:assembleRelease --stacktrace
 
-      - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk App-Time-v1.0.0-debug.apk
+      # نام خروجی استاندارد Gradle به نام قابل تشخیص پروژه تغییر می‌کند.
+      - name: Rename release APK
+        run: cp app/build/outputs/apk/release/app-release-unsigned.apk App-Time-v1.1.0-release-unsigned.apk
 
-      - name: Upload APK
+      # APK بدون امضا برای تست CI به‌عنوان Artifact گیت‌هاب نگهداری می‌شود.
+      # فایل عمومی نهایی باید خارج از GitHub با Keystore خصوصی پروژه امضا شود.
+      - name: Upload release APK
         uses: actions/upload-artifact@v4
         with:
-          name: App-Time-v1.0.0-debug
-          path: App-Time-v1.0.0-debug.apk
+          name: App-Time-v1.1.0-release-unsigned
+          path: App-Time-v1.1.0-release-unsigned.apk
           if-no-files-found: error
           retention-days: 30

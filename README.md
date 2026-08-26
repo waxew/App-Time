@@ -1,12 +1,71 @@
-# App-Time
+# App-Time | تایم
 
-Android implementation of the Time/TikTime-style business management application.
+اپلیکیشن اندرویدی فارسی برای مدیریت نوبت‌ها، پرونده مشتری، پرسنل، پیامک، امور مالی و گزارش‌های کسب‌وکار.
 
-- Kotlin
-- Jetpack Compose
-- Material 3
-- Persian RTL UI
-- Appointment, customer, messaging, staff and accounting modules
-- Update-ready release architecture
+## وضعیت فعلی
 
-Version: 1.0.0
+نسخه فعلی: **1.1.0** (`versionCode = 2`)
+
+این نسخه روی Android 8 به بالا اجرا می‌شود و رابط آن با Kotlin، Jetpack Compose و Material 3 ساخته شده است.
+
+## امکانات نسخه 1.1.0
+
+- داشبورد فارسی RTL با ظاهر تیره و کارت‌های مدیریتی
+- پرونده مشتری و جستجو
+- نوبت‌دهی و برنامه روزانه
+- مرکز پیامک و گزینه‌های ارسال
+- پرسنل، خدمات و سطوح دسترسی
+- مالی و حسابداری
+- گزارش‌های سیستم
+- تنظیمات و بخش اعلان‌ها
+- منوی همبرگری سمت راست در تمام صفحات
+- درباره ما، تماس با ما، درباره نرم‌افزار و بررسی بروزرسانی
+- Back Stack واقعی: دکمه Back گوشی و دکمه بازگشت بالای صفحه به صفحه قبلی برمی‌گردند
+- نمایش خودکار نسخه برنامه از `BuildConfig.VERSION_NAME`
+- ساختار Release و امضای پایدار برای آپدیت‌های بعدی
+
+## درباره صفحه «درباره نرم‌افزار»
+
+در این صفحه فقط توضیح کوتاهی درباره کاربرد برنامه و شماره نسخه به کاربر نشان داده می‌شود. اطلاعات فنی مانند Package Name یا Application ID در رابط کاربری نمایش داده نمی‌شوند.
+
+## ساخت پروژه
+
+پیش‌نیازها:
+
+- Android Studio جدید
+- JDK 17
+- Android SDK 35
+- Gradle 8.7
+
+برای ساخت نسخه تست:
+
+```bash
+gradle :app:assembleDebug
+```
+
+برای ساخت نسخه Release بدون کلید خصوصی:
+
+```bash
+gradle :app:assembleRelease
+```
+
+اگر پوشه خصوصی `signing/` و فایل `keystore.properties` موجود باشند، Gradle همان کلید پایدار پروژه را برای Release استفاده می‌کند.
+
+## ساختار مهم پروژه
+
+- `app/src/main/java/ir/asteam/apptime/MainActivity.kt` — UI، ناوبری و صفحات نسخه فعلی
+- `app/build.gradle.kts` — تنظیمات Android، نسخه و امضای Release
+- `app/src/main/AndroidManifest.xml` — تعریف Application، Activity و مجوزها
+- `app/src/main/res/values/` — نام برنامه و Theme سیستم
+- `version.json` — اطلاعات نسخه برای سیستم بروزرسانی آینده
+- `.github/workflows/android.yml` — بررسی خودکار Compile نسخه Release
+- `docs/ARCHITECTURE_FA.md` — معماری و قواعد ثابت توسعه
+- `docs/SOURCE_GUIDE_FA.md` — راهنمای فایل‌ها و پوشه‌ها
+
+## نکته مهم امضا
+
+فایل Keystore و رمزهای آن **نباید در GitHub عمومی Commit شوند**. نسخه خصوصی سورس که برای مالک پروژه تهیه می‌شود شامل پوشه `signing` و فایل `info.txt` است تا انتشارهای بعدی با همان امضا ساخته شوند.
+
+## توسعه آینده
+
+داده‌های فعلی بعضی صفحات نمایشی هستند. لایه Database/Repository، رزرو آنلاین واقعی، درگاه پیامک، احراز هویت، Sync ابری، Backup و سیستم بروزرسانی آنلاین در نسخه‌های بعد به همین UI متصل خواهند شد.
