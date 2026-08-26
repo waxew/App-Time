@@ -4,6 +4,13 @@
 // برای خواندن تنظیمات کلید امضا از فایل محلی keystore.properties از Properties جاوا استفاده می‌کنیم.
 import java.util.Properties
 
+// پلاگین برنامه اندروید و Kotlin برای این ماژول فعال می‌شوند.
+// طبق قواعد Gradle، بلوک plugins باید پیش از سایر دستورات اجرایی فایل قرار بگیرد.
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+}
+
 // مسیر فایل تنظیمات امضای خصوصی را مشخص می‌کنیم.
 // این فایل عمداً در GitHub قرار نمی‌گیرد و فقط داخل بسته خصوصی سورس تحویلی وجود خواهد داشت.
 val keystorePropertiesFile = rootProject.file("signing/keystore.properties")
@@ -16,12 +23,6 @@ if (keystorePropertiesFile.exists()) {
     keystorePropertiesFile.inputStream().use { stream ->
         keystoreProperties.load(stream)
     }
-}
-
-// پلاگین برنامه اندروید و Kotlin برای این ماژول فعال می‌شوند.
-plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
 }
 
 // تنظیمات اصلی ساخت برنامه اندروید از این بخش شروع می‌شود.
