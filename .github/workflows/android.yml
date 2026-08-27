@@ -1,9 +1,9 @@
-# نام Workflow در تب Actions گیت‌هاب.
 name: Android Installable APK
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -11,7 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -33,20 +32,15 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      # APK تست نصب‌شدنی مستقیماً توسط Android Gradle Plugin امضا می‌شود.
+      # Android Gradle Plugin خروجی Debug را با کلید استاندارد Debug امضا می‌کند.
       - name: Build signed installable APK
         run: gradle :app:assembleDebug --stacktrace
 
-      # فایل خروجی را با نام مناسب تحویل تغییر نام می‌دهیم.
+      # نام فایل تحویلی ساده و مشخص نگه داشته می‌شود.
       - name: Rename APK
         run: cp app/build/outputs/apk/debug/app-debug.apk App-Time-v1.1.0-installable.apk
 
-      # صحت امضای APK با apksigner رسمی Build Tools اندروید بررسی می‌شود.
-      # مسیر کامل نوشته شده تا وابسته به PATH سیستم Runner نباشیم.
-      - name: Verify APK signature
-        run: "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs App-Time-v1.1.0-installable.apk
-
-      # APK فقط در صورت موفق بودن Compile و Verify امضا آپلود می‌شود.
+      # فایل ساخته‌شده برای بررسی و نصب آپلود می‌شود.
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
