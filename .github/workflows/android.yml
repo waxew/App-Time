@@ -43,17 +43,38 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      # چون کلید خصوصی عمداً در GitHub نیست، این مرحله Release بدون امضا را Compile می‌کند.
-      # هدف این مرحله اثبات سلامت Compile سورس Production است.
+      # نسخه Release بدون کلید خصوصی Production فقط برای اثبات سلامت Compile ساخته می‌شود.
       - name: Build release APK
         run: gradle :app:assembleRelease --stacktrace
 
-      # نام خروجی استاندارد Gradle به نام قابل تشخیص پروژه تغییر می‌کند.
+      # یک APK نصب‌شدنی تست نیز می‌سازیم. Android Gradle Plugin این خروجی را با
+      # امضای استاندارد Debug که شامل APK Signature Scheme v2/v3 است امضا می‌کند.
+      # این فایل برای نصب مستقیم و QA است و جایگزین کلید Production نهایی نیست.
+      - name: Build installable signed test APK
+        run: gradle :app:assembleDebug --stacktrace
+
+      # خروجی تست به نام واضح و بدون پسوند debug در فایل تحویلی کپی می‌شود.
+      - name: Rename installable test APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk App-Time-v1.1.0-installable.apk
+
+      # با apksigner خود Android SDK صحت Schemeهای امضا بررسی می‌شود.
+      - name: Verify installable APK signature
+        run: apksigner verify --verbose --print-certs App-Time-v1.1.0-installable.apk
+
+      # APK قابل نصب به‌عنوان Artifact اصلی تست نگهداری می‌شود.
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: App-Time-v1.1.0-installable
+          path: App-Time-v1.1.0-installable.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      # نام خروجی استاندارد Release به نام قابل تشخیص پروژه تغییر می‌کند.
       - name: Rename release APK
         run: cp app/build/outputs/apk/release/app-release-unsigned.apk App-Time-v1.1.0-release-unsigned.apk
 
-      # APK بدون امضا برای تست CI به‌عنوان Artifact گیت‌هاب نگهداری می‌شود.
-      # فایل عمومی نهایی باید خارج از GitHub با Keystore خصوصی پروژه امضا شود.
+      # APK بدون امضا برای بررسی CI به‌عنوان Artifact نگهداری می‌شود.
       - name: Upload release APK
         uses: actions/upload-artifact@v4
         with:
@@ -74,7 +95,8 @@ jobs:
             -x 'signing/*' \
             -x '*.jks' \
             -x '*.keystore' \
-            -x 'App-Time-v1.1.0-release-unsigned.apk'
+            -x 'App-Time-v1.1.0-release-unsigned.apk' \
+            -x 'App-Time-v1.1.0-installable.apk'
 
       # ZIP سورس عمومی به‌عنوان Artifact جداگانه ذخیره می‌شود.
       - name: Upload public source
