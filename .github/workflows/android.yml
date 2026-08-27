@@ -1,108 +1,53 @@
 # نام Workflow در تب Actions گیت‌هاب.
-name: Android Release Check
+name: Android Installable APK
 
-# این Workflow بعد از هر Push روی main و همچنین اجرای دستی فعال می‌شود.
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
 
-# Job اصلی Compile برنامه.
 jobs:
   build:
-    # ماشین Ubuntu گیت‌هاب برای Build اندروید استفاده می‌شود.
     runs-on: ubuntu-latest
-
-    # Workflow فقط نیاز به خواندن سورس دارد و مجوز نوشتن Repository نمی‌گیرد.
     permissions:
       contents: read
 
     steps:
-      # سورس همان Commit را داخل Runner دریافت می‌کند.
       - name: Checkout source
         uses: actions/checkout@v4
 
-      # Android Gradle Plugin پروژه با Java 17 اجرا می‌شود.
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      # Android SDK روی Runner آماده می‌شود.
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # Platform و Build Tools مورد نیاز compileSdk=35 نصب می‌شوند.
       - name: Install Android 35
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
-      # Gradle 8.7 بدون نیاز به Wrapper قدیمی در Runner آماده می‌شود.
       - name: Setup Gradle 8.7
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
 
-      # نسخه Release بدون کلید خصوصی Production فقط برای اثبات سلامت Compile ساخته می‌شود.
-      - name: Build release APK
-        run: gradle :app:assembleRelease --stacktrace
-
-      # یک APK نصب‌شدنی تست نیز می‌سازیم. Android Gradle Plugin این خروجی را با
-      # امضای استاندارد Debug که شامل APK Signature Scheme v2/v3 است امضا می‌کند.
-      # این فایل برای نصب مستقیم و QA است و جایگزین کلید Production نهایی نیست.
-      - name: Build installable signed test APK
+      # APK تست نصب‌شدنی مستقیماً توسط Android Gradle Plugin امضا می‌شود.
+      - name: Build signed installable APK
         run: gradle :app:assembleDebug --stacktrace
 
-      # خروجی تست به نام واضح و بدون پسوند debug در فایل تحویلی کپی می‌شود.
-      - name: Rename installable test APK
+      - name: Rename APK
         run: cp app/build/outputs/apk/debug/app-debug.apk App-Time-v1.1.0-installable.apk
 
-      # با apksigner خود Android SDK صحت Schemeهای امضا بررسی می‌شود.
-      - name: Verify installable APK signature
+      # امضای APK با ابزار رسمی Android SDK بررسی می‌شود.
+      - name: Verify APK signature
         run: apksigner verify --verbose --print-certs App-Time-v1.1.0-installable.apk
 
-      # APK قابل نصب به‌عنوان Artifact اصلی تست نگهداری می‌شود.
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
           name: App-Time-v1.1.0-installable
           path: App-Time-v1.1.0-installable.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      # نام خروجی استاندارد Release به نام قابل تشخیص پروژه تغییر می‌کند.
-      - name: Rename release APK
-        run: cp app/build/outputs/apk/release/app-release-unsigned.apk App-Time-v1.1.0-release-unsigned.apk
-
-      # APK بدون امضا برای بررسی CI به‌عنوان Artifact نگهداری می‌شود.
-      - name: Upload release APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: App-Time-v1.1.0-release-unsigned
-          path: App-Time-v1.1.0-release-unsigned.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      # از همان Commit یک ZIP تمیز از سورس ساخته می‌شود.
-      # پوشه‌های Build، Cache، Git و اطلاعات امضای خصوصی عمداً داخل این فایل قرار نمی‌گیرند.
-      - name: Package public source
-        run: |
-          zip -r App-Time-v1.1.0-source-public.zip . \
-            -x '.git/*' \
-            -x '.gradle/*' \
-            -x 'build/*' \
-            -x 'app/build/*' \
-            -x 'signing/*' \
-            -x '*.jks' \
-            -x '*.keystore' \
-            -x 'App-Time-v1.1.0-release-unsigned.apk' \
-            -x 'App-Time-v1.1.0-installable.apk'
-
-      # ZIP سورس عمومی به‌عنوان Artifact جداگانه ذخیره می‌شود.
-      - name: Upload public source
-        uses: actions/upload-artifact@v4
-        with:
-          name: App-Time-v1.1.0-source-public
-          path: App-Time-v1.1.0-source-public.zip
           if-no-files-found: error
           retention-days: 30
