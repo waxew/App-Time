@@ -1,0 +1,89 @@
+name: App-Time Emulator QA
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/android-emulator-qa.yml'
+      - 'app/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+
+jobs:
+  emulator-qa:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK 35
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
+      - name: Setup Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build Debug APK
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install, launch and inspect app
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: default
+          profile: pixel_4
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: |
+            set -euo pipefail
+            adb devices
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb shell cmd package resolve-activity --brief ir.asteam.apptime | tee resolved-activity.txt
+            grep -q 'ir.asteam.apptime' resolved-activity.txt
+            adb logcat -c
+            adb shell am start -W -n ir.asteam.apptime/.MainActivity | tee launch-result.txt
+            sleep 4
+            test -n "$(adb shell pidof -s ir.asteam.apptime | tr -d '\r')"
+            adb shell uiautomator dump /sdcard/app-time-home.xml
+            adb pull /sdcard/app-time-home.xml app-time-home.xml
+            grep -q 'داشبورد' app-time-home.xml
+            grep -q 'پرونده مشتری' app-time-home.xml
+            grep -q 'نوبت‌دهی' app-time-home.xml
+            if adb logcat -d -b crash | grep -q 'ir.asteam.apptime'; then
+              adb logcat -d -b crash
+              exit 1
+            fi
+            adb shell am force-stop ir.asteam.apptime
+            adb uninstall ir.asteam.apptime
+
+      - name: Upload QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: App-Time-v2.0.0-emulator-qa
+          path: |
+            resolved-activity.txt
+            launch-result.txt
+            app-time-home.xml
+          if-no-files-found: warn
+          retention-days: 14
