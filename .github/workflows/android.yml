@@ -49,6 +49,24 @@ jobs:
       - name: Install Android SDK 35
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
+      # ابزار رسمی امضا را بدون هیچ Keystore یا رمز خصوصی به‌عنوان Artifact کمکی نگهداری می‌کنیم.
+      # این فایل‌ها مستقیماً از Android SDK نصب‌شده در Runner تهیه می‌شوند.
+      - name: Package official Android signing tools
+        run: |
+          mkdir -p android-signing-tools-35/lib
+          cp "$ANDROID_HOME/build-tools/35.0.0/apksigner" android-signing-tools-35/apksigner
+          cp "$ANDROID_HOME/build-tools/35.0.0/zipalign" android-signing-tools-35/zipalign
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" android-signing-tools-35/lib/apksigner.jar
+          chmod +x android-signing-tools-35/apksigner android-signing-tools-35/zipalign
+
+      - name: Upload official Android signing tools
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-signing-tools-35
+          path: android-signing-tools-35
+          if-no-files-found: error
+          retention-days: 7
+
       # Gradle 8.9 برای Build این پروژه استفاده می‌شود.
       - name: Setup Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
@@ -78,7 +96,8 @@ jobs:
             -x '*.jks' \
             -x '*.keystore' \
             -x 'App-Time-v2.0.0-debug.apk' \
-            -x 'App-Time-v2.0.0-release-unsigned.apk'
+            -x 'App-Time-v2.0.0-release-unsigned.apk' \
+            -x 'android-signing-tools-35/*'
 
       # Debug برای QA سریع روی دستگاه/شبیه‌ساز نگهداری می‌شود.
       - name: Upload Debug APK
