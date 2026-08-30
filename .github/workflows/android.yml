@@ -1,50 +1,107 @@
-name: Android Installable APK
+name: App-Time Android CI
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
+
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # فایل‌های بزرگ نسخه 2 به صورت قطعات Base64 وارد مخزن می‌شوند.
+      # وجود patch.ready تضمین می‌کند هیچ بسته ناقصی اعمال نشود.
+      - name: Apply complete source bundle
+        if: ${{ hashFiles('ci/patch.ready') != '' }}
+        run: |
+          set -euo pipefail
+          cat ci/patch.part* > /tmp/app_time_patch.b64
+          base64 -d /tmp/app_time_patch.b64 > /tmp/app_time_patch.zip
+          unzip -o /tmp/app_time_patch.zip -d .
+          rm -f ci/patch.part* ci/patch.ready
+          rmdir ci 2>/dev/null || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: complete App-Time 2.0.0" || true
+          git push
 
       - name: Setup Java 17
+        if: ${{ hashFiles('ci/patch.part*') == '' }}
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
       - name: Setup Android SDK
+        if: ${{ hashFiles('ci/patch.part*') == '' }}
         uses: android-actions/setup-android@v3
 
-      - name: Install Android 35
+      - name: Install Android SDK 35
+        if: ${{ hashFiles('ci/patch.part*') == '' }}
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Setup Gradle 8.7
+      - name: Setup Gradle 8.9
+        if: ${{ hashFiles('ci/patch.part*') == '' }}
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.7'
+          gradle-version: '8.9'
 
-      # Android Gradle Plugin خروجی Debug را با کلید استاندارد Debug امضا می‌کند.
-      - name: Build signed installable APK
-        run: gradle :app:assembleDebug --stacktrace
+      - name: Compile Debug and Release
+        if: ${{ hashFiles('ci/patch.part*') == '' }}
+        run: gradle :app:assembleDebug :app:assembleRelease --stacktrace
 
-      # نام فایل تحویلی ساده و مشخص نگه داشته می‌شود.
-      - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk App-Time-v1.1.0-installable.apk
+      - name: Run Android lint
+        if: ${{ hashFiles('ci/patch.part*') == '' }}
+        run: gradle :app:lintDebug --stacktrace
 
-      # فایل ساخته‌شده برای بررسی و نصب آپلود می‌شود.
-      - name: Upload installable APK
+      - name: Prepare build artifacts
+        if: ${{ hashFiles('ci/patch.part*') == '' }}
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk App-Time-v2.0.0-debug.apk
+          cp app/build/outputs/apk/release/app-release-unsigned.apk App-Time-v2.0.0-release-unsigned.apk
+          zip -r App-Time-v2.0.0-source-public.zip . \
+            -x '.git/*' \
+            -x '.gradle/*' \
+            -x 'build/*' \
+            -x 'app/build/*' \
+            -x 'signing/*' \
+            -x '*.jks' \
+            -x '*.keystore' \
+            -x 'App-Time-v2.0.0-debug.apk' \
+            -x 'App-Time-v2.0.0-release-unsigned.apk'
+
+      - name: Upload Debug APK
+        if: ${{ hashFiles('ci/patch.part*') == '' }}
         uses: actions/upload-artifact@v4
         with:
-          name: App-Time-v1.1.0-installable
-          path: App-Time-v1.1.0-installable.apk
+          name: App-Time-v2.0.0-debug
+          path: App-Time-v2.0.0-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload unsigned Release APK
+        if: ${{ hashFiles('ci/patch.part*') == '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: App-Time-v2.0.0-release-unsigned
+          path: App-Time-v2.0.0-release-unsigned.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload public source
+        if: ${{ hashFiles('ci/patch.part*') == '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: App-Time-v2.0.0-source-public
+          path: App-Time-v2.0.0-source-public.zip
           if-no-files-found: error
           retention-days: 30
