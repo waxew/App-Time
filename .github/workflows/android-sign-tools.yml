@@ -27,17 +27,20 @@ jobs:
       - name: Package signing tools
         run: |
           set -euo pipefail
-          mkdir -p android-sign-tools/lib
+          mkdir -p android-sign-tools/lib android-sign-tools/lib64
           cp "$ANDROID_HOME/build-tools/35.0.0/apksigner" android-sign-tools/
           cp "$ANDROID_HOME/build-tools/35.0.0/zipalign" android-sign-tools/
           cp "$ANDROID_HOME/build-tools/35.0.0/aapt2" android-sign-tools/
           cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" android-sign-tools/lib/
+          runtime_lib="$(find "$ANDROID_HOME" -path '*build-tools/35.0.0*' -name 'libc++.so' -print -quit)"
+          test -n "$runtime_lib"
+          cp "$runtime_lib" android-sign-tools/lib64/libc++.so
           chmod +x android-sign-tools/apksigner android-sign-tools/zipalign android-sign-tools/aapt2
 
       - name: Upload signing tools
         uses: actions/upload-artifact@v4
         with:
-          name: android-build-tools-35-signing
+          name: android-build-tools-35-signing-runtime
           path: android-sign-tools
           if-no-files-found: error
           retention-days: 7
