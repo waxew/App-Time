@@ -1,0 +1,43 @@
+name: Export Android Signing Tools
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/android-sign-tools.yml'
+
+jobs:
+  export-tools:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android Build Tools 35
+        run: sdkmanager "build-tools;35.0.0"
+
+      - name: Package signing tools
+        run: |
+          set -euo pipefail
+          mkdir -p android-sign-tools/lib
+          cp "$ANDROID_HOME/build-tools/35.0.0/apksigner" android-sign-tools/
+          cp "$ANDROID_HOME/build-tools/35.0.0/zipalign" android-sign-tools/
+          cp "$ANDROID_HOME/build-tools/35.0.0/aapt2" android-sign-tools/
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" android-sign-tools/lib/
+          chmod +x android-sign-tools/apksigner android-sign-tools/zipalign android-sign-tools/aapt2
+
+      - name: Upload signing tools
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-tools-35-signing
+          path: android-sign-tools
+          if-no-files-found: error
+          retention-days: 7
