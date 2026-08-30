@@ -1,4 +1,4 @@
-# QA نصب و اجرای واقعی App-Time روی شبیه‌ساز Android 15.
+# QA نصب و اجرای واقعی App-Time با Emulator دستی و adb.
 name: App-Time Emulator QA
 
 on:
@@ -29,8 +29,17 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android SDK 35
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+      # API 34 یک تصویر پایدار عمومی برای QA نصب است؛ APK با targetSdk 35 روی آن قابل نصب است.
+      - name: Install Android SDK and emulator image
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager \
+            "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "platform-tools" \
+            "emulator" \
+            "system-images;android-34;google_apis;x86_64"
 
       - name: Setup Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
@@ -45,60 +54,92 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm || true
+
+      - name: Create and boot emulator
+        run: |
+          set -euo pipefail
+          echo no | avdmanager create avd \
+            --force \
+            --name appTimeQa \
+            --package "system-images;android-34;google_apis;x86_64" \
+            --device "pixel_4"
+
+          "$ANDROID_HOME/emulator/emulator" \
+            -avd appTimeQa \
+            -no-window \
+            -gpu swiftshader_indirect \
+            -noaudio \
+            -no-boot-anim \
+            -no-snapshot \
+            -no-metrics \
+            > emulator.log 2>&1 &
+          echo $! > emulator.pid
+
+          adb wait-for-device
+          adb devices | tee adb-devices.txt
+
+          # منتظر پایان واقعی Boot می‌مانیم؛ در صورت شکست لاگ Emulator در Artifact می‌ماند.
+          booted=""
+          for i in $(seq 1 120); do
+            booted="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+            if [ "$booted" = "1" ]; then
+              break
+            fi
+            sleep 2
+          done
+          test "$booted" = "1"
+          adb shell input keyevent 82 || true
 
       - name: Install, launch and inspect app
-        uses: ReactiveCircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          arch: x86_64
-          target: default
-          profile: pixel_4
-          disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          script: |
-            set -euo pipefail
+        run: |
+          set -euo pipefail
 
-            # از ابتدای تست شواهد متنی ایجاد می‌شوند تا حتی در خطا قابل بررسی باشند.
-            adb devices | tee adb-devices.txt
+          # نصب APK باید صریحاً Success برگرداند.
+          adb install -r app/build/outputs/apk/debug/app-debug.apk | tee install-result.txt
+          grep -q '^Success' install-result.txt
 
-            # نصب باید صریحاً با Success تمام شود.
-            adb install -r app/build/outputs/apk/debug/app-debug.apk | tee install-result.txt
-            grep -q '^Success' install-result.txt
+          # Package Manager باید Activity اصلی را Resolve کند.
+          adb shell cmd package resolve-activity --brief ir.asteam.apptime | tr -d '\r' | tee resolved-activity.txt
+          grep -q 'ir.asteam.apptime/.MainActivity' resolved-activity.txt
 
-            # Activity اصلی باید توسط Package Manager قابل Resolve باشد.
-            adb shell cmd package resolve-activity --brief ir.asteam.apptime | tr -d '\r' | tee resolved-activity.txt
-            grep -q 'ir.asteam.apptime/.MainActivity' resolved-activity.txt
+          adb logcat -c
 
-            # Crash buffer قبل از Launch پاک می‌شود تا فقط خطاهای همین اجرا سنجیده شوند.
-            adb logcat -c
+          # Launch واقعی و انتظار برای Window نخست.
+          adb shell am start -W -n ir.asteam.apptime/.MainActivity | tr -d '\r' | tee launch-result.txt
+          grep -q '^Status: ok' launch-result.txt
+          sleep 5
 
-            # Launch با -W منتظر اولین Window می‌ماند؛ Status باید ok باشد.
-            adb shell am start -W -n ir.asteam.apptime/.MainActivity | tr -d '\r' | tee launch-result.txt
-            grep -q '^Status: ok' launch-result.txt
+          # Process باید پس از ساخت Compose UI زنده بماند.
+          pid="$(adb shell pidof -s ir.asteam.apptime | tr -d '\r')"
+          test -n "$pid"
+          echo "$pid" | tee process-id.txt
 
-            # چند ثانیه فرصت می‌دهیم Compose اولین Frame را بسازد.
-            sleep 5
+          # Activity باید در Task فعال دیده شود.
+          adb shell dumpsys activity activities | tr -d '\r' > activity-state.txt
+          grep -q 'ir.asteam.apptime/.MainActivity' activity-state.txt
 
-            # Process باید بعد از ساخت UI همچنان زنده باشد.
-            pid="$(adb shell pidof -s ir.asteam.apptime | tr -d '\r')"
-            test -n "$pid"
-            echo "$pid" | tee process-id.txt
+          # Crash buffer نباید Crash متعلق به App-Time داشته باشد.
+          adb logcat -d -b crash | tr -d '\r' > crash-log.txt || true
+          if grep -q 'ir.asteam.apptime' crash-log.txt; then
+            cat crash-log.txt
+            exit 1
+          fi
 
-            # وضعیت Activity برای اثبات قرارگرفتن MainActivity در Task ذخیره می‌شود.
-            adb shell dumpsys activity activities | tr -d '\r' > activity-state.txt
-            grep -q 'ir.asteam.apptime/.MainActivity' activity-state.txt
+          # یک UI tree برای شواهد اجرا ذخیره می‌شود، اما متن فارسی شرط قبولی نیست.
+          adb shell uiautomator dump /sdcard/app-time-home.xml || true
+          adb pull /sdcard/app-time-home.xml app-time-home.xml || true
 
-            # Crash Buffer نباید Crash متعلق به App-Time داشته باشد.
-            adb logcat -d -b crash | tr -d '\r' > crash-log.txt || true
-            if grep -q 'ir.asteam.apptime' crash-log.txt; then
-              cat crash-log.txt
-              exit 1
-            fi
+          # چرخه نصب با Uninstall موفق بسته می‌شود.
+          adb shell am force-stop ir.asteam.apptime
+          adb uninstall ir.asteam.apptime | tee uninstall-result.txt
+          grep -q '^Success' uninstall-result.txt
 
-            # در پایان Uninstall نیز باید موفق باشد تا چرخه نصب کامل تأیید شود.
-            adb shell am force-stop ir.asteam.apptime
-            adb uninstall ir.asteam.apptime | tee uninstall-result.txt
-            grep -q '^Success' uninstall-result.txt
+      - name: Stop emulator
+        if: always()
+        run: |
+          adb emu kill || true
+          if [ -f emulator.pid ]; then kill "$(cat emulator.pid)" 2>/dev/null || true; fi
 
       - name: Upload QA evidence
         if: always()
@@ -106,6 +147,7 @@ jobs:
         with:
           name: App-Time-v2.0.0-emulator-qa
           path: |
+            emulator.log
             adb-devices.txt
             install-result.txt
             resolved-activity.txt
@@ -113,6 +155,7 @@ jobs:
             process-id.txt
             activity-state.txt
             crash-log.txt
+            app-time-home.xml
             uninstall-result.txt
           if-no-files-found: warn
           retention-days: 14
