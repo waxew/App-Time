@@ -1,3 +1,4 @@
+# Gradle Wrapper 8.9 برای Build محلی در Android Studio و VS Code.
 name: Generate Gradle Wrapper
 
 on:
