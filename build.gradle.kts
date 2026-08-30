@@ -1,9 +1,8 @@
-// فایل Gradle سطح ریشه پروژه است.
-// نسخه پلاگین‌های Android و Kotlin را یک‌بار برای همه ماژول‌ها تعریف می‌کند.
+// فایل Gradle سطح ریشه؛ نسخه پلاگین‌های اصلی را یک‌بار برای کل پروژه تعریف می‌کند.
 plugins {
-    // Android Gradle Plugin مسئول تبدیل سورس اندروید به APK است.
-    id("com.android.application") version "8.5.2" apply false
+    // AGP 8.7.3 به‌صورت رسمی با API 35 سازگار است.
+    id("com.android.application") version "8.7.3" apply false
 
-    // پلاگین Kotlin کامپایل فایل‌های .kt را فعال می‌کند.
+    // Kotlin 1.9.24 با Compose Compiler انتخاب‌شده پروژه هماهنگ است.
     id("org.jetbrains.kotlin.android") version "1.9.24" apply false
 }

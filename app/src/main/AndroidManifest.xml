@@ -1,34 +1,54 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  AndroidManifest فایل معرفی برنامه به سیستم اندروید است.
-  مجوزها، Application و Activity اصلی در این فایل تعریف می‌شوند.
+  AndroidManifest معرفی رسمی App-Time به سیستم عامل است.
+  فقط مجوزهایی که برای امکانات فعلی لازم‌اند تعریف شده‌اند.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- اینترنت برای اتصال سرویس بروزرسانی، پیامک و Backend در نسخه‌های بعد لازم است. -->
+    <!-- اینترنت فقط برای بررسی نسخه جدید و باز کردن سرویس‌های آنلاین اختیاری لازم است. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- این مجوز برای اعلان‌های Android 13 به بالا استفاده خواهد شد. -->
+    <!-- اعلان‌های Android 13 به بالا با تأیید صریح کاربر نمایش داده می‌شوند. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- تنظیمات عمومی Application. -->
+    <!-- بعد از روشن‌شدن دستگاه، یادآوری‌های محلی دوباره زمان‌بندی می‌شوند. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- Application اصلی برنامه؛ داده‌ها داخل Sandbox اختصاصی App-Time ذخیره می‌شوند. -->
     <application
         android:allowBackup="true"
+        android:fullBackupContent="true"
+        android:icon="@drawable/app_icon"
+        android:roundIcon="@drawable/app_icon"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.AppTime">
+        android:theme="@style/Theme.AppTime"
+        android:usesCleartextTraffic="false">
 
-        <!-- MainActivity نقطه ورود اصلی برنامه است. -->
+        <!-- MainActivity تنها Activity برنامه و نقطه ورود Launcher است. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:screenOrientation="portrait">
-
-            <!-- این Intent Filter باعث نمایش برنامه در Launcher دستگاه می‌شود. -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Receiver اعلان‌های زمان‌بندی‌شده؛ از بیرون برنامه قابل فراخوانی نیست. -->
+        <receiver
+            android:name=".notification.ReminderReceiver"
+            android:exported="false" />
+
+        <!-- Receiver بوت فقط رویداد رسمی BOOT_COMPLETED را دریافت می‌کند. -->
+        <receiver
+            android:name=".notification.BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- آیکون برداری App-Time؛ بدون فایل تصویری خارجی و قابل مقیاس برای Launcher. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- پس‌زمینه گرد تیره. -->
+    <path
+        android:fillColor="#151A24"
+        android:pathData="M18,4 H90 A14,14 0,0 1,104 18 V90 A14,14 0,0 1,90 104 H18 A14,14 0,0 1,4 90 V18 A14,14 0,0 1,18 4 Z" />
+
+    <!-- حلقه ساعت. -->
+    <path
+        android:fillColor="#2DD4A4"
+        android:fillType="evenOdd"
+        android:pathData="M54,20 A34,34 0,1 1,53.9 20 M54,28 A26,26 0,1 0,54.1 28" />
+
+    <!-- عقربه دقیقه. -->
+    <path
+        android:fillColor="#F7F8FA"
+        android:pathData="M50,34 H58 V56 H50 Z" />
+
+    <!-- عقربه ساعت با زاویه به راست. -->
+    <path
+        android:fillColor="#F7F8FA"
+        android:pathData="M54,50 L74,62 L70,69 L50,57 Z" />
+
+    <!-- مرکز ساعت. -->
+    <path
+        android:fillColor="#4C9CFF"
+        android:pathData="M54,49 A7,7 0,1 1,53.9 49" />
+</vector>
