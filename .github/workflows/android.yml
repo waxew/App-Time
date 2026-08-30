@@ -1,3 +1,4 @@
+# خط CI اصلی App-Time؛ هر Push روی main را Compile، Lint و بسته‌بندی می‌کند.
 name: App-Time Android CI
 
 on:
@@ -12,87 +13,62 @@ jobs:
       contents: write
 
     steps:
+      # سورس همان Commit را به‌صورت کامل دریافت می‌کنیم تا در صورت وجود Hotfix کوچک، آن را روی main ثبت کنیم.
       - name: Checkout source
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # بسته عمومی، فایل‌های کوچک و لایه داده را منتقل می‌کند.
-      # MainActivity جداگانه منتقل می‌شود تا خرابی یک قطعه ZIP به فایل اصلی UI سرایت نکند.
-      - name: Apply staged App-Time 2.0 source
-        if: ${{ hashFiles('ci/patch.ready') != '' || hashFiles('ci/main.ready') != '' }}
+      # Kotlin Collection حاصل از SortedMap.values مستقیماً takeLast ندارد.
+      # این اصلاح یک‌باره روی سورس v2 اعمال می‌شود و سپس در Repository ثبت می‌گردد.
+      - name: Apply v2 compile normalization
         run: |
           set -euo pipefail
-
-          if [ -f ci/patch.ready ]; then
-            cat ci/patch.part* > /tmp/app_time_patch.b64
-            base64 -d /tmp/app_time_patch.b64 > /tmp/app_time_patch.zip
-            rm -rf /tmp/app_time_patch
-            mkdir -p /tmp/app_time_patch
-            unzip -o /tmp/app_time_patch.zip -d /tmp/app_time_patch || true
-
-            # فایل‌های ضروری غیر از MainActivity باید سالم استخراج شده باشند.
-            test -f /tmp/app_time_patch/app/src/main/java/ir/asteam/apptime/data/AppDatabase.kt
-            test -f /tmp/app_time_patch/app/src/main/java/ir/asteam/apptime/data/AppController.kt
-            test -f /tmp/app_time_patch/app/build.gradle.kts
-            test -f /tmp/app_time_patch/version.json
-
-            # MainActivity خراب احتمالی بسته اول هرگز روی سورس فعلی کپی نمی‌شود.
-            rm -f /tmp/app_time_patch/app/src/main/java/ir/asteam/apptime/MainActivity.kt
-            cp -a /tmp/app_time_patch/. .
-            rm -f ci/patch.part* ci/patch.ready
+          FILE="app/src/main/java/ir/asteam/apptime/MainActivity.kt"
+          if grep -q 'toSortedMap().values.takeLast(12)' "$FILE"; then
+            sed -i 's/toSortedMap()\.values\.takeLast(12)/toSortedMap().values.toList().takeLast(12)/' "$FILE"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add "$FILE"
+            git commit -m "fix: normalize dashboard chart collection"
+            git push
           fi
 
-          if [ -f ci/main.ready ]; then
-            cat ci/main.part* > /tmp/main_activity.b64
-            base64 -d /tmp/main_activity.b64 | gunzip > app/src/main/java/ir/asteam/apptime/MainActivity.kt
-            test -s app/src/main/java/ir/asteam/apptime/MainActivity.kt
-            grep -q 'private fun AppTimeRoot' app/src/main/java/ir/asteam/apptime/MainActivity.kt
-            grep -q 'private fun CustomersScreen' app/src/main/java/ir/asteam/apptime/MainActivity.kt
-            rm -f ci/main.part* ci/main.ready
-          fi
-
-          rmdir ci 2>/dev/null || true
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "feat: complete App-Time 2.0.0" || true
-          git push
-
+      # پروژه با Java 17 سازگار و تست شده است.
       - name: Setup Java 17
-        if: ${{ hashFiles('ci/*.part*') == '' && hashFiles('ci/*.ready') == '' }}
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
+      # Android SDK و ابزارهای خط فرمان را روی Runner آماده می‌کنیم.
       - name: Setup Android SDK
-        if: ${{ hashFiles('ci/*.part*') == '' && hashFiles('ci/*.ready') == '' }}
         uses: android-actions/setup-android@v3
 
+      # compileSdk/targetSdk پروژه 35 است و Build Tools 35 برای APK و apksigner نصب می‌شود.
       - name: Install Android SDK 35
-        if: ${{ hashFiles('ci/*.part*') == '' && hashFiles('ci/*.ready') == '' }}
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
+      # Gradle 8.9 برای Build این پروژه استفاده می‌شود.
       - name: Setup Gradle 8.9
-        if: ${{ hashFiles('ci/*.part*') == '' && hashFiles('ci/*.ready') == '' }}
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
+      # هر دو Variant ساخته می‌شوند تا خطاهای مختص Debug یا Release پنهان نمانند.
       - name: Compile Debug and Release
-        if: ${{ hashFiles('ci/*.part*') == '' && hashFiles('ci/*.ready') == '' }}
         run: gradle :app:assembleDebug :app:assembleRelease --stacktrace
 
+      # Lint بعد از Compile اجرا می‌شود و خطاهای Android/Kotlin را کنترل می‌کند.
       - name: Run Android lint
-        if: ${{ hashFiles('ci/*.part*') == '' && hashFiles('ci/*.ready') == '' }}
         run: gradle :app:lintDebug --stacktrace
 
+      # نام فایل‌های قابل تحویل ثابت و قابل تشخیص است؛ Release این مرحله عمداً unsigned است.
       - name: Prepare build artifacts
-        if: ${{ hashFiles('ci/*.part*') == '' && hashFiles('ci/*.ready') == '' }}
         run: |
           cp app/build/outputs/apk/debug/app-debug.apk App-Time-v2.0.0-debug.apk
           cp app/build/outputs/apk/release/app-release-unsigned.apk App-Time-v2.0.0-release-unsigned.apk
+          sha256sum App-Time-v2.0.0-debug.apk App-Time-v2.0.0-release-unsigned.apk > App-Time-v2.0.0-build.sha256
           zip -r App-Time-v2.0.0-source-public.zip . \
             -x '.git/*' \
             -x '.gradle/*' \
@@ -104,8 +80,8 @@ jobs:
             -x 'App-Time-v2.0.0-debug.apk' \
             -x 'App-Time-v2.0.0-release-unsigned.apk'
 
+      # Debug برای QA سریع روی دستگاه/شبیه‌ساز نگهداری می‌شود.
       - name: Upload Debug APK
-        if: ${{ hashFiles('ci/*.part*') == '' && hashFiles('ci/*.ready') == '' }}
         uses: actions/upload-artifact@v4
         with:
           name: App-Time-v2.0.0-debug
@@ -113,8 +89,8 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      # Release بدون کلید خصوصی در CI عمومی تولید می‌شود و بعداً با Keystore پایدار مالک امضا می‌گردد.
       - name: Upload unsigned Release APK
-        if: ${{ hashFiles('ci/*.part*') == '' && hashFiles('ci/*.ready') == '' }}
         uses: actions/upload-artifact@v4
         with:
           name: App-Time-v2.0.0-release-unsigned
@@ -122,11 +98,20 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      # سورس عمومی بدون Keystore، Cache و Build output تحویل داده می‌شود.
       - name: Upload public source
-        if: ${{ hashFiles('ci/*.part*') == '' && hashFiles('ci/*.ready') == '' }}
         uses: actions/upload-artifact@v4
         with:
           name: App-Time-v2.0.0-source-public
           path: App-Time-v2.0.0-source-public.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      # Checksum خروجی‌های CI برای کنترل سلامت فایل‌ها نگهداری می‌شود.
+      - name: Upload build checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: App-Time-v2.0.0-checksums
+          path: App-Time-v2.0.0-build.sha256
           if-no-files-found: error
           retention-days: 30
