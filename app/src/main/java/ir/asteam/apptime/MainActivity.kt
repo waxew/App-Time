@@ -637,7 +637,7 @@ private fun DashboardScreen(controller: AppController, onOpen: (Screen) -> Unit)
 
 /** ساخت داده نمودار بر اساس تعداد نوبت‌های ثبت‌شده در 12 تاریخ اخیر. */
 private fun dashboardBars(appointments: List<Appointment>): List<Int> {
-    val grouped = appointments.groupingBy { it.date }.eachCount().toSortedMap().values.takeLast(12)
+    val grouped = appointments.groupingBy { it.date }.eachCount().toSortedMap().values.toList().takeLast(12)
     if (grouped.isEmpty()) return List(12) { 18 }
     val maxValue = max(1, grouped.maxOrNull() ?: 1)
     val scaled = grouped.map { 18 + (it * 64 / maxValue) }
