@@ -17,16 +17,41 @@ jobs:
         with:
           fetch-depth: 0
 
-      # فایل‌های بزرگ نسخه 2 به صورت قطعات Base64 وارد مخزن می‌شوند.
-      # وجود patch.ready تضمین می‌کند هیچ بسته ناقصی اعمال نشود.
-      - name: Apply complete source bundle
-        if: ${{ hashFiles('ci/patch.ready') != '' }}
+      # بسته عمومی، فایل‌های کوچک و لایه داده را منتقل می‌کند.
+      # MainActivity جداگانه منتقل می‌شود تا خرابی یک قطعه ZIP به فایل اصلی UI سرایت نکند.
+      - name: Apply staged App-Time 2.0 source
+        if: ${{ hashFiles('ci/patch.ready') != '' || hashFiles('ci/main.ready') != '' }}
         run: |
           set -euo pipefail
-          cat ci/patch.part* > /tmp/app_time_patch.b64
-          base64 -d /tmp/app_time_patch.b64 > /tmp/app_time_patch.zip
-          unzip -o /tmp/app_time_patch.zip -d .
-          rm -f ci/patch.part* ci/patch.ready
+
+          if [ -f ci/patch.ready ]; then
+            cat ci/patch.part* > /tmp/app_time_patch.b64
+            base64 -d /tmp/app_time_patch.b64 > /tmp/app_time_patch.zip
+            rm -rf /tmp/app_time_patch
+            mkdir -p /tmp/app_time_patch
+            unzip -o /tmp/app_time_patch.zip -d /tmp/app_time_patch || true
+
+            # فایل‌های ضروری غیر از MainActivity باید سالم استخراج شده باشند.
+            test -f /tmp/app_time_patch/app/src/main/java/ir/asteam/apptime/data/AppDatabase.kt
+            test -f /tmp/app_time_patch/app/src/main/java/ir/asteam/apptime/data/AppController.kt
+            test -f /tmp/app_time_patch/app/build.gradle.kts
+            test -f /tmp/app_time_patch/version.json
+
+            # MainActivity خراب احتمالی بسته اول هرگز روی سورس فعلی کپی نمی‌شود.
+            rm -f /tmp/app_time_patch/app/src/main/java/ir/asteam/apptime/MainActivity.kt
+            cp -a /tmp/app_time_patch/. .
+            rm -f ci/patch.part* ci/patch.ready
+          fi
+
+          if [ -f ci/main.ready ]; then
+            cat ci/main.part* > /tmp/main_activity.b64
+            base64 -d /tmp/main_activity.b64 | gunzip > app/src/main/java/ir/asteam/apptime/MainActivity.kt
+            test -s app/src/main/java/ir/asteam/apptime/MainActivity.kt
+            grep -q 'private fun AppTimeRoot' app/src/main/java/ir/asteam/apptime/MainActivity.kt
+            grep -q 'private fun CustomersScreen' app/src/main/java/ir/asteam/apptime/MainActivity.kt
+            rm -f ci/main.part* ci/main.ready
+          fi
+
           rmdir ci 2>/dev/null || true
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -35,36 +60,36 @@ jobs:
           git push
 
       - name: Setup Java 17
-        if: ${{ hashFiles('ci/patch.part*') == '' }}
+        if: ${{ hashFiles('ci/*.part*') == '' && hashFiles('ci/*.ready') == '' }}
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
       - name: Setup Android SDK
-        if: ${{ hashFiles('ci/patch.part*') == '' }}
+        if: ${{ hashFiles('ci/*.part*') == '' && hashFiles('ci/*.ready') == '' }}
         uses: android-actions/setup-android@v3
 
       - name: Install Android SDK 35
-        if: ${{ hashFiles('ci/patch.part*') == '' }}
+        if: ${{ hashFiles('ci/*.part*') == '' && hashFiles('ci/*.ready') == '' }}
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
       - name: Setup Gradle 8.9
-        if: ${{ hashFiles('ci/patch.part*') == '' }}
+        if: ${{ hashFiles('ci/*.part*') == '' && hashFiles('ci/*.ready') == '' }}
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
       - name: Compile Debug and Release
-        if: ${{ hashFiles('ci/patch.part*') == '' }}
+        if: ${{ hashFiles('ci/*.part*') == '' && hashFiles('ci/*.ready') == '' }}
         run: gradle :app:assembleDebug :app:assembleRelease --stacktrace
 
       - name: Run Android lint
-        if: ${{ hashFiles('ci/patch.part*') == '' }}
+        if: ${{ hashFiles('ci/*.part*') == '' && hashFiles('ci/*.ready') == '' }}
         run: gradle :app:lintDebug --stacktrace
 
       - name: Prepare build artifacts
-        if: ${{ hashFiles('ci/patch.part*') == '' }}
+        if: ${{ hashFiles('ci/*.part*') == '' && hashFiles('ci/*.ready') == '' }}
         run: |
           cp app/build/outputs/apk/debug/app-debug.apk App-Time-v2.0.0-debug.apk
           cp app/build/outputs/apk/release/app-release-unsigned.apk App-Time-v2.0.0-release-unsigned.apk
@@ -80,7 +105,7 @@ jobs:
             -x 'App-Time-v2.0.0-release-unsigned.apk'
 
       - name: Upload Debug APK
-        if: ${{ hashFiles('ci/patch.part*') == '' }}
+        if: ${{ hashFiles('ci/*.part*') == '' && hashFiles('ci/*.ready') == '' }}
         uses: actions/upload-artifact@v4
         with:
           name: App-Time-v2.0.0-debug
@@ -89,7 +114,7 @@ jobs:
           retention-days: 30
 
       - name: Upload unsigned Release APK
-        if: ${{ hashFiles('ci/patch.part*') == '' }}
+        if: ${{ hashFiles('ci/*.part*') == '' && hashFiles('ci/*.ready') == '' }}
         uses: actions/upload-artifact@v4
         with:
           name: App-Time-v2.0.0-release-unsigned
@@ -98,7 +123,7 @@ jobs:
           retention-days: 30
 
       - name: Upload public source
-        if: ${{ hashFiles('ci/patch.part*') == '' }}
+        if: ${{ hashFiles('ci/*.part*') == '' && hashFiles('ci/*.ready') == '' }}
         uses: actions/upload-artifact@v4
         with:
           name: App-Time-v2.0.0-source-public
